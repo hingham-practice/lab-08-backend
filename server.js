@@ -93,31 +93,12 @@ function Yelp(data){
   this.name = data.name;
 }
 
-// meetup
-app.get('/meetups', getMeetup);
-function getMeetup(request,response){
-  const URL = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEETUP_API_KEY}&sign=true&photo-host=public&page=20`;
-  return superagent.get(URL)
-    .then(results =>{
-      const meetups = [];
-      results.body.events.forEach((e)=>{
-        meetups.push(new Meetup(e))
-      })
-      response.send(meetups);
-    })
-    .catch(err => handleError(err,response));
-}
-
-function Meetup(data){
-  this.name = data.name;
-  this.group = data.group.name;
-
-}
 
 // movies
 app.get('/movies', getMovie);
 
 function getMovie(request, response){
+  console.log(request.query.data.formatted_query);
   let city = request.query.data.formatted_query.split(', ').slice(0,1);
 
   const URL = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${city}&page=1&include_adult=false`;
@@ -139,27 +120,3 @@ function Movie(data){
 
 }
 
-// hiking
-app.get('/trails', getHike);
-function getHike(request,response){
-  const URL = `https://www.hikingproject.com/data/get-trails?lat=${request.query.data.latitude}&lon=${request.query.data.longitude}&maxDistance=10&key=${process.env.HIKE_API_KEY}`;
-  return superagent.get(URL)
-    .then(results =>{
-      const hikeArray = [];
-      results.body.trails.forEach((e)=>{
-        hikeArray.push(new Hike(e));
-      })
-      response.send(hikeArray);
-    })
-    .catch(err => handleError(err,response));
-}
-
-function Hike(data){
-  this.name = data.name;
-
-}
-
-
-app.listen(PORT, ()=>{
-  console.log(`app is running on ${PORT}`)
-});

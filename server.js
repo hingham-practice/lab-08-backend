@@ -29,7 +29,7 @@ function handleError(err, res){
 }
 
 app.get('/location', getLocation);
-//app.get('/weather', getWeatherData);
+app.get('/weather', getWeatherData);
 //app.get('/yelp', getYelpData);
 //app.get('/movies', getMovieData);
 
@@ -106,6 +106,65 @@ Location.lookupLocation = (handler) =>{
     .catch(console.error);
 };
 
+//--------------------Weather Functions ----------------- //
+
+function Weather(day) {
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toString().slice(0,15);
+}
+
+//Prototype function that inserts new data into the SQL table;
+Weather.prototype.save = function(id){
+  const SQL = `INSERT INTO weathers(forecast,time,location_id) VALUES($1,$2,$3);`;
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+}
+
+Weather.lookup = function(handler) {
+  const SQL = `SELECT * FROM weathers WHERE location_id = $1;`;
+  client.query(SQL, [handler.location.id]) //why is it wrapped in brackets
+    .then(result => {
+      if(result.rowCount > 0){
+        console.log('got data from SQL');
+        handler.cacheHit(results);
+      }
+      else {
+        console.log('got data from API');
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error))
+};
+
+Weather.fetch = function(location) {
+  const URL = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
+  return superagent.get(URL)
+    .then(result => {
+      const weatherSummaries = result.body.daily.data.map(day => {
+        const summary = new Weather(day);
+        summary.save(location.id);
+        return summary;
+      })
+        .catch(handleError);
+      return weatherSummaries;
+    });
+};
+
+function getWeatherData(request, response) {
+  const handler = {
+    location: request.query.data,
+    cacheHit: function(result) {
+      response.send(result.rows)
+    },
+    cacheMiss: function() {
+      Weather.fetch(request.query.data)
+        .then(results => {response.send(results)})
+        .catch(console.error);
+    },
+  };
+  Weather.lookup(handler);
+}
 
 //--------------------Old Location Functions -----------------
 //sends request for data, then sends it off

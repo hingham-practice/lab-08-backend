@@ -124,8 +124,8 @@ Weather.prototype.save = function(id){
 Weather.lookup = function(handler) {
   const SQL = `SELECT * FROM weathers WHERE location_id = $1;`;
   client.query(SQL, [handler.location.id]) //why is it wrapped in brackets
-    .then(result => {
-      if(result.rowCount > 0){
+    .then(results => {
+      if(results.rowCount > 0){
         console.log('got data from SQL');
         handler.cacheHit(results);
       }
@@ -138,7 +138,7 @@ Weather.lookup = function(handler) {
 };
 
 Weather.fetch = function(location) {
-  const URL = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
+  const URL = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${location.latitude},${location.longitude}`;
   return superagent.get(URL)
     .then(result => {
       const weatherSummaries = result.body.daily.data.map(day => {
@@ -166,58 +166,8 @@ function getWeatherData(request, response) {
   Weather.lookup(handler);
 }
 
-//--------------------Old Location Functions -----------------
-//sends request for data, then sends it off
-// app.get('/location', (request, response)=>{
-//   searchToLatLong(request.query.data)
-//     .then(locationData=> {
-//       response.send(locationData);
-//     })
-//     .catch(err => handleError(err,response));
-// })
+//--------------------Yelp and Movie Data: To be restructured -----------------
 
-//requests location data from google maps api
-// function searchToLatLong(query){
-//   const URL = (`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`);
-//   return superagent.get(URL)
-//     .then(data =>{
-//       if(!data.body.results.length){ throw `NO DATA`;}
-//       else{
-//         let location = new Location(data.body.results[0]);
-//         location.search_query = query;
-//         return location;
-//       }
-
-//     })
-//     .catch(err => handleError(err));
-// }
-
-
-// app.get('/weather',getWeatherData);
-
-// //requests weather data from dark sky api
-// function getWeatherData(request, response){
-//   const URL = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
-//   return superagent.get(URL)
-//     .then(results => {
-//       const weatherArray = [];
-//       results.body.daily.data.forEach((day)=>{
-//         weatherArray.push(new Weather(day));
-//       })
-//       response.send(weatherArray);
-//     })
-//     .catch(err => handleError(err,response));
-// }
-
-
-// //constructor function for data to normalize data from dark sky api
-// function Weather(data){
-//   this.time = new Date(data.time*1000).toString().slice(0,15);
-//   this.forecast = data.summary;
-// }
-
-// //requests yelp data from yelp api
-// app.get('/yelp', getYelpData);
 
 // function getYelpData(request, response){
 

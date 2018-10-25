@@ -18,11 +18,15 @@ app.listen(PORT, () => {
   console.log(`app is running on ${PORT}`)
 });
 
+
+//handles error if the data we don't want is returned
 function handleError(err, res){
   console.log(`ERROR`, err);
   if(res){res.status(500).send(`sorry no peanuts`);}
 }
 
+
+//sends request for data, then sends it off
 app.get('/location', (request, response)=>{
   searchToLatLong(request.query.data)
     .then(locationData=> {
@@ -31,6 +35,7 @@ app.get('/location', (request, response)=>{
     .catch(err => handleError(err,response));
 })
 
+//requests location data from google maps api 
 function searchToLatLong(query){
   const URL = (`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`);
   return superagent.get(URL)
@@ -46,6 +51,8 @@ function searchToLatLong(query){
     .catch(err => handleError(err));
 }
 
+
+//constructor function for data to normalize data from maps api
 function Location(data){
   this.formatted_query = data.formatted_address;
   this.latitude = data.geometry.location.lat;
@@ -54,6 +61,7 @@ function Location(data){
 
 app.get('/weather',getWeatherData);
 
+//requests weather data from dark sky api 
 function getWeatherData(request, response){
   const URL = `https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
   return superagent.get(URL)
@@ -67,12 +75,14 @@ function getWeatherData(request, response){
     .catch(err => handleError(err,response));
 }
 
+
+//constructor function for data to normalize data from dark sky api
 function Weather(data){
   this.time = new Date(data.time*1000).toString().slice(0,15);
   this.forecast = data.summary;
 }
 
-// yelp
+//requests yelp data from yelp api 
 app.get('/yelp', getYelp);
 
 function getYelp(request, response){
@@ -93,6 +103,7 @@ function getYelp(request, response){
 
 }
 
+//constructor function for data to normalize data from yelp api
 function Yelp(data){
   this.name = data.name;
   this.image_url = data.image_url;
@@ -102,7 +113,7 @@ function Yelp(data){
 }
 
 
-// movies
+//requests movie data from movieDB api 
 app.get('/movies', getMovie);
 
 function getMovie(request, response){
@@ -123,6 +134,8 @@ function getMovie(request, response){
 
 }
 
+
+//constructor function for data to normalize data from Movie api
 function Movie(data){
   this.title = data.title;
   this.overview = data.overview;

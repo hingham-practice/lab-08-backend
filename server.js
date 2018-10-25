@@ -14,6 +14,10 @@ const app = express();
 
 app.use(cors());
 
+app.listen(PORT, () => {
+  console.log(`app is running on ${PORT}`)
+});
+
 function handleError(err, res){
   console.log(`ERROR`, err);
   if(res){res.status(500).send(`sorry no peanuts`);}
@@ -34,10 +38,9 @@ function searchToLatLong(query){
       if(!data.body.results.length){ throw `NO DATA`;}
       else{
         let location = new Location(data.body.results[0]);
-        location.search_query = query; 
+        location.search_query = query;
         return location;
       }
-          
 
     })
     .catch(err => handleError(err));
@@ -78,6 +81,7 @@ function getYelp(request, response){
   return superagent.get(URL)
     .set({'Authorization' : `Bearer ${process.env.YELP_API_KEY}`})
     .then( results =>{
+
       const yelpArray = [];
       results.body.businesses.forEach((e)=>{
         yelpArray.push(new Yelp(e));
@@ -91,6 +95,10 @@ function getYelp(request, response){
 
 function Yelp(data){
   this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
 }
 
 
@@ -104,6 +112,7 @@ function getMovie(request, response){
   const URL = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${city}&page=1&include_adult=false`;
   return superagent.get(URL)
     .then(results =>{
+      console.log(results.body);
       const movieArray = [];
       results.body.results.forEach((e)=>{
         movieArray.push(new Movie(e))
@@ -116,7 +125,11 @@ function getMovie(request, response){
 
 function Movie(data){
   this.title = data.title;
-    
-
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  this.popularity = data.popularity;
+  this.released_on = data.released_on;
+  this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
 }
 

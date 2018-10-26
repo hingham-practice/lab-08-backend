@@ -294,7 +294,7 @@ Movie.fetch = function(location) {
         film.save(location.id);
         return film;
       })
-        //.catch(error => handleError(error));
+      //.catch(error => handleError(error));
       return movieArray;
     });
 };

@@ -258,7 +258,7 @@ function Movie(data){
 }
 
 Movie.prototype.save = function(id){
-  const SQL = `INSERT INTO movies(movie_name,image_url,price,rating,url,location_id) VALUES($1,$2,$3,$4,$5,$6);`;
+  const SQL = `INSERT INTO movies(title,overview,average_votes,total_votes,popularity,released_on,image_url,location_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`;
   const values = Object.values(this);
   values.push(id);
   client.query(SQL, values);
@@ -270,7 +270,7 @@ Movie.lookup = function(queryDataHandler){
     .then(results => {
       if(results.rowCount>0){
         console.log('got movie data from sql');
-        queryDataHandler.catchHit(results);
+        queryDataHandler.cacheHit(results);
       }
       else{
         console.log('got movie data from API');
@@ -289,14 +289,14 @@ Movie.fetch = function(location) {
     .then(results =>{
       console.log('result from movies' + results);
       console.log(results.body.results);
-      const movieArray = results.body.results.map(movies =>{
+      const movieArray = results.body.results.map( movies =>{
         const film = new Movie(movies);
         film.save(location.id);
         return film;
-      })
-      //.catch(error => handleError(error));
+      });
       return movieArray;
-    });
+    })
+    .catch(error => handleError(error));
 };
 
 function getMovieData(request, response){

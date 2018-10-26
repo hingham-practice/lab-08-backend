@@ -77,7 +77,6 @@ function getLocation (request, response){
     query: request.query.data,
     cacheHit: (results) =>{
       console.log('got location data from sql');
-      console.log(locationHandler.query);
 
       //not sure what the .row[0] do, why can't we use results[0]
       response.send(results.rows[0]);
@@ -90,7 +89,7 @@ function getLocation (request, response){
           client.query(SQL, [request.query.data])
             .then(data=>response.send(data.rows[0]))
             .catch(error => handleError(error));
-        })
+        }).catch(error => handleError (error));
     },
 
   };
@@ -122,26 +121,51 @@ function Weather(day) {
 
 //Prototype function that inserts new data into the SQL table;
 Weather.prototype.save = function(id){
-  const SQL = `INSERT INTO weathers(forecast,time,location_id) VALUES($1,$2,$3);`;
+  const SQL = `INSERT INTO weathers(forecast,time,created_at,location_id) VALUES($1,$2,$3,$4);`;
   const values = Object.values(this);
+  console.log('time accessed ' + Date.now());
+  values.push(Date.now());
+  console.log(Date.now());
   values.push(id);
   client.query(SQL, values);
 }
 
+Weather.deleteEntryById = function (id) {
+  const SQL = `DELETE FROM weathers WHERE location_id = ${id};`;
+  client.query(SQL)
+    .then(() => {
+      console.log(`DELETED weather entry from SQL`)
+    })
+    .catch(error => handleError(error));
+}
+
 Weather.lookup = function(queryDataHandler) {
   const SQL = `SELECT * FROM weathers WHERE location_id = $1;`;
+  console.log(queryDataHandler.location.id + ' is the data handler location');
   client.query(SQL, [queryDataHandler.location.id]) //why is it wrapped in brackets
     .then(results => {
       if(results.rowCount > 0){
-        console.log('got weather data from SQL');
-        queryDataHandler.cacheHit(results);
+        console.log('weather data exists in SQL');
+
+        let currentAge = Date.now()- results.rows[0].created_at /(1000 * 1);
+        console.log(Date.now() + ' is the date', results.rows[0].created_at + ' when record was created');
+        console.log(currentAge+ ' seconds')
+        if(results.rowCount > 0 && currentAge > 1 ){
+          console.log(`weather Data was too old`);
+          Weather.deleteEntryById(queryDataHandler.location.id);
+          queryDataHandler.cacheMiss();
+        }
+        else {
+          console.log(`weather data was just right `);
+          queryDataHandler.cacheHit(results);
+        }
       }
       else {
         console.log('got weather data from API');
         queryDataHandler.cacheMiss();
       }
     })
-    .catch(error => handleError(error))
+    .catch(error => handleError(error));
 };
 
 Weather.fetch = function(location) {
@@ -153,10 +177,10 @@ Weather.fetch = function(location) {
         const summary = new Weather(day);
         summary.save(location.id);
         return summary;
-      })
-        .catch(handleError);
+      });
       return weatherSummaries;
-    });
+    }).catch(handleError);
+
 };
 
 function getWeatherData(request, response) {
@@ -187,10 +211,21 @@ function Yelp(data){
 }
 
 Yelp.prototype.save = function(id){
-  const SQL = `INSERT INTO yelps(name,image_url,price,rating,url,location_id) VALUES($1,$2,$3,$4,$5,$6);`;
+  const SQL = `INSERT INTO yelps(name,image_url,price,rating,url,created_at,location_id) VALUES($1,$2,$3,$4,$5,$6,$7);`;
   const values = Object.values(this);
   values.push(id);
+  values.push(id);
   client.query(SQL, values);
+}
+
+
+Yelp.deleteEntryById = function (id) {
+  const SQL = `DELETE FROM yelps WHERE location_id = ${id};`;
+  client.query(SQL)
+    .then(() => {
+      console.log(`DELECTED yelp entry from SQL`)
+    })
+    .catch(error => handleError(error));
 }
 
 
@@ -198,34 +233,42 @@ Yelp.lookup = function(queryDataHandler){
   const SQL = `SELECT * FROM yelps WHERE location_id = $1;`;
   client.query(SQL, [queryDataHandler.location.id])
     .then(results => {
+
       if(results.rowCount > 0){
-        console.log('got yelp data from SQL');
-        queryDataHandler.cacheHit(results);
+        console.log('yelp data existed is sql');
+        let currentAge = Date.now() - results.rows[0].created_at / (1000 * 60);
+
+        if(results.rowCount > 0 && currentAge > 1){
+          console.log('yelp data was too old');
+          Yelp.deleteEntryById(queryDataHandler.location.id);
+          queryDataHandler.cacheMiss();
+        }
+        else {
+          console.log('yelp Data was just right')
+        }
+
       }
       else {
         console.log('got yelp data from API');
         queryDataHandler.cacheMiss();
       }
     })
-    .catch(error => handleError(error))
+    .catch(error => handleError(error));
 };
 
 Yelp.fetch = function(location) {
   const URL = `https://api.yelp.com/v3/businesses/search?latitude=${location.latitude}&longitude=${location.longitude}`;
-  //console.log('in yelp fetch ' + location);
   return superagent
     .get(URL)
     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
     .then( result =>{
-      //console.log('result' + result)
       const yelpArray = result.body.businesses.map(business =>{
         const eatery = new Yelp(business);
         eatery.save(location.id);
         return eatery;
-      })
-        .catch(handleError);
+      });
       return yelpArray;
-    });
+    }).catch(handleError);
 };
 
 function getYelpData(request, response) {
@@ -277,18 +320,15 @@ Movie.lookup = function(queryDataHandler){
         queryDataHandler.cacheMiss();
       }
     })
-    .catch(error => handleError(error))
+    .catch(error => handleError(error));
 };
 
 Movie.fetch = function(location) {
   const city = location.formatted_query.split(',')[0];
-  console.log('city ' + city);
   const URL = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${city}&page=1&include_adult=false`;
   return superagent
     .get(URL)
     .then(results =>{
-      console.log('result from movies' + results);
-      console.log(results.body.results);
       const movieArray = results.body.results.map( movies =>{
         const film = new Movie(movies);
         film.save(location.id);

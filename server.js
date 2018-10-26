@@ -31,9 +31,12 @@ function handleError(err, res){
 
 
 app.get('/location', getLocation);
-app.get('/weather', getWeatherData);
-app.get('/yelp', getYelpData);
-app.get('/movies', getMovieData);
+//app.get('/weather', getWeatherData);
+//app.get('/yelp', getYelpData);
+//app.get('/movies', getMovieData);
+app.get('/meetups', getMeetupData);
+//app.get('/trails', getTrailData);
+
 
 //constructor function for data to normalize data from maps api
 function Location(query, data){
@@ -203,7 +206,7 @@ function getWeatherData(request, response) {
 
 //constructor function for data to normalize data from yelp api
 function Yelp(data){
-  this.name = data.name;
+  this.eatery_name = data.name;
   this.image_url = data.image_url;
   this.price = data.price;
   this.rating = data.rating;
@@ -211,10 +214,11 @@ function Yelp(data){
 }
 
 Yelp.prototype.save = function(id){
-  const SQL = `INSERT INTO yelps(name,image_url,price,rating,url,created_at,location_id) VALUES($1,$2,$3,$4,$5,$6,$7);`;
+  const SQL = `INSERT INTO yelps(eatery_name,image_url,price,rating,yelp_url,created_at,location_id) VALUES($1,$2,$3,$4,$5,$6,$7);`;
   const values = Object.values(this);
+  values.push(Date.now());
   values.push(id);
-  values.push(id);
+  console.log('yelp values' + values);
   client.query(SQL, values);
 }
 
@@ -262,16 +266,20 @@ Yelp.fetch = function(location) {
     .get(URL)
     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
     .then( result =>{
+      console.log('yelp result' + result);
       const yelpArray = result.body.businesses.map(business =>{
         const eatery = new Yelp(business);
         eatery.save(location.id);
         return eatery;
       });
       return yelpArray;
-    }).catch(handleError);
+    })
+    .catch(error => handleError(error));
 };
 
 function getYelpData(request, response) {
+  console.log('inside of get yelp data');
+
   const queryDataHandler = {
     location: request.query.data,
     cacheHit: function(result){
@@ -301,10 +309,20 @@ function Movie(data){
 }
 
 Movie.prototype.save = function(id){
-  const SQL = `INSERT INTO movies(title,overview,average_votes,total_votes,popularity,released_on,image_url,location_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`;
+  const SQL = `INSERT INTO movies(title,overview,average_votes,total_votes,popularity,released_on,image_url,created_at,location_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8);`;
   const values = Object.values(this);
+  values.push(Date.now());
   values.push(id);
   client.query(SQL, values);
+}
+
+Movie.deleteEntryById = function(id){
+  const SQL = `DELECTED FROM movies WHERE location_id = ${id};`;
+  client.query(SQL)
+    .then(()=>{
+      console.log('dected movie data from sql');
+    }
+    ).catch(error => handleError(error));
 }
 
 Movie.lookup = function(queryDataHandler){
@@ -312,8 +330,19 @@ Movie.lookup = function(queryDataHandler){
   client.query(SQL, [queryDataHandler.location.id])
     .then(results => {
       if(results.rowCount>0){
-        console.log('got movie data from sql');
-        queryDataHandler.cacheHit(results);
+        console.log('movie data existed in sql');
+
+        let currentAge = Date.now() - results.rows[0].created_at / (1000);
+
+        if(results.roCount > 0 && currentAge > 1){
+          console.log('movie data was too old');
+          Movie.deleteEntryById(queryDataHandler.location.id);
+          queryDataHandler.cacheMiss();
+        }
+        else {
+          console.log('data was just right');
+          queryDataHandler.cacheHit(results);
+        }
       }
       else{
         console.log('got movie data from API');
@@ -354,6 +383,90 @@ function getMovieData(request, response){
   Movie.lookup(queryDataHandler);
 }
 
+
+
+//----------------MeetUP Functions -------------
+
+//constructor function for data to normalize data from MeetUP api
+function Meetup(data){
+  this.link = data.link;
+  this.name = data.name;
+  this.creation_date = data.created;
+  this.host = data.group.name;
+}
+
+Meetup.prototype.save = function(id){
+  const SQL = `INSERT INTO meetups(link,mu_name,creation_date,host,created_at,location_id) VALUES($1,$2,$3,$4,$5,$6);`;
+  const values = Object.values(this);
+  values.push(Date.now());
+  values.push(id);
+  client.query(SQL, values);
+}
+
+Meetup.deleteEntryById = function(id){
+  const SQL = `DELECTED FROM meetups WHERE location_id = ${id};`;
+  client.query(SQL)
+    .then(()=>{
+      console.log('dected meetup data from sql');
+    }
+    ).catch(error => handleError(error));
+}
+
+Meetup.lookup = function(queryDataHandler){
+  const SQL = `SELECT * FROM meetups WHERE location_id = $1;`;
+  client.query(SQL, [queryDataHandler.location.id])
+    .then(results => {
+      if(results.rowCount>0){
+        console.log('meetups data existed in sql');
+
+        let currentAge = Date.now() - results.rows[0].created_at / (1000);
+
+        if(results.roCount > 0 && currentAge > 1){
+          console.log('meetups data was too old');
+          Movie.deleteEntryById(queryDataHandler.location.id);
+          queryDataHandler.cacheMiss();
+        }
+        else {
+          console.log('meetups data was just right');
+          queryDataHandler.cacheHit(results);
+        }
+      }
+      else{
+        console.log('got meetup data from API');
+        queryDataHandler.cacheMiss();
+      }
+    }).catch(error => handleError(error));
+};
+
+Meetup.fetch = function(location) {
+  const URL = `https://api.meetup.com/find/upcoming_events?key=${process.env.MEET_API_KEY}&lat=${location.latitude}&lon=${location.longitude}`;
+  return superagent
+    .get(URL)
+    .then(results =>{
+      console.log('meetup results' + results);
+      const meetupArray = results.body.events.map( event =>{
+        const groupEvent = new Meetup(event);
+        groupEvent.save(location.id);
+        return groupEvent;
+      });
+      return meetupArray;
+    }).catch(error => handleError(error));
+};
+
+function getMeetupData(request, response){
+  const queryDataHandler = {
+    location: request.query.data,
+    cacheHit: function(result){
+      response.send(result.rows)
+    },
+    cacheMiss: function() {
+      Meetup.fetch(request.query.data)
+        .then(results => {response.send(results)})
+        .catch(handleError);
+    },
+  };
+  Meetup.lookup(queryDataHandler);
+}
 
 
 

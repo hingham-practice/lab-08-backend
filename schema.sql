@@ -25,11 +25,11 @@ CREATE TABLE weathers (
 
 CREATE TABlE yelps (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255),
+    eatery_name VARCHAR(255),
     image_url VARCHAR(255),
     price VARCHAR(255),
     rating NUMERIC(8),
-    url VARCHAR(255),
+    yelp_url VARCHAR(255),
     created_at BIGINT,
     location_id INTEGER NOT NULL REFERENCES locations(id)
 );

@@ -31,9 +31,9 @@ function handleError(err, res){
 
 
 app.get('/location', getLocation);
-//app.get('/weather', getWeatherData);
-//app.get('/yelp', getYelpData);
-//app.get('/movies', getMovieData);
+app.get('/weather', getWeatherData);
+app.get('/yelp', getYelpData);
+app.get('/movies', getMovieData);
 app.get('/meetups', getMeetupData);
 //app.get('/trails', getTrailData);
 
@@ -126,9 +126,7 @@ function Weather(day) {
 Weather.prototype.save = function(id){
   const SQL = `INSERT INTO weathers(forecast,time,created_at,location_id) VALUES($1,$2,$3,$4);`;
   const values = Object.values(this);
-  console.log('time accessed ' + Date.now());
   values.push(Date.now());
-  console.log(Date.now());
   values.push(id);
   client.query(SQL, values);
 }
@@ -151,8 +149,6 @@ Weather.lookup = function(queryDataHandler) {
         console.log('weather data exists in SQL');
 
         let currentAge = Date.now()- results.rows[0].created_at /(1000 * 1);
-        console.log(Date.now() + ' is the date', results.rows[0].created_at + ' when record was created');
-        console.log(currentAge+ ' seconds')
         if(results.rowCount > 0 && currentAge > 1 ){
           console.log(`weather Data was too old`);
           Weather.deleteEntryById(queryDataHandler.location.id);
@@ -218,7 +214,6 @@ Yelp.prototype.save = function(id){
   const values = Object.values(this);
   values.push(Date.now());
   values.push(id);
-  console.log('yelp values' + values);
   client.query(SQL, values);
 }
 
